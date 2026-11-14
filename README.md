@@ -1,6 +1,6 @@
 # Offline Music Player
 
-A cutting-edge, fully offline-capable music player that works seamlessly in airplane mode and without internet connection.
+A browser-based music player with service-worker caching and progressive-web-app experiments. Offline operation depends on installed service-worker support and successfully cached assets; do not assume all media is available offline.
 
 ## Features
 
@@ -17,7 +17,7 @@ A cutting-edge, fully offline-capable music player that works seamlessly in airp
 
 1. Open the application in your web browser
 2. The app will automatically cache all media files and resources
-3. Once cached, the app will work completely offline
+3. Once essential assets and media are cached successfully, supported offline features can work without a network connection
 4. You can access the app in airplane mode or without internet connection
 5. The app can be installed as a Progressive Web App on your device
 
@@ -32,8 +32,8 @@ A cutting-edge, fully offline-capable music player that works seamlessly in airp
 ## Installation
 
 1. Clone this repository
-2. Open `index.html` in your web browser
-3. The app will automatically cache all resources
+2. Serve the repository through HTTPS or a local web server (service workers do not run from `file://`)
+3. Verify that the service worker installs and the desired media assets actually load before relying on offline caching
 4. Install as a PWA by clicking the install button in your browser
 
 ## Technical Details

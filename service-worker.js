@@ -1,5 +1,6 @@
 const CACHE_NAME = 'music-player-v2';
-const GITHUB_URL = 'https://rescuepc-repairs.github.io/Music/';
+// Use the installed service worker scope, not a previous GitHub account hostname.
+const GITHUB_URL = new URL('./', self.registration.scope).href;
 
 // Cache static assets
 const staticAssets = [
