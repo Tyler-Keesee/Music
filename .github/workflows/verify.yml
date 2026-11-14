@@ -1,0 +1,30 @@
+name: Validate offline music player
+on:
+  pull_request:
+    paths: ['index.html', 'service-worker.js', 'manifest.json', 'app-icon.svg', 'tests/**', '.github/workflows/verify.yml']
+  push:
+    branches: [main]
+    paths: ['index.html', 'service-worker.js', 'manifest.json', 'app-icon.svg', 'tests/**', '.github/workflows/verify.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/*.test.mjs
+      - name: Browser smoke test
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/music-http.log 2>&1 &
+          server=$!
+          trap 'kill "$server" || true' EXIT
+          sleep 2
+          browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$browser"
+          "$browser" --headless=new --no-sandbox --disable-dev-shm-usage --virtual-time-budget=3000 --dump-dom http://127.0.0.1:8765/index.html > /tmp/music-dom.html
+          grep -q 'Add Media' /tmp/music-dom.html
+          grep -q 'No local media added yet' /tmp/music-dom.html

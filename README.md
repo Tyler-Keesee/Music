@@ -57,3 +57,10 @@ The application is built with vanilla JavaScript, CSS, and HTML for maximum comp
 ## License
 
 MIT License
+
+## Media availability and offline behavior
+
+- Select **Add Media** to import your own audio or video files. The app attempts to save imported files to your browser's IndexedDB so they remain available when you reopen the app offline; this depends on available storage space and permissions.
+- The app shell is cached by its service worker when opened on HTTPS or localhost. Importing large files may exceed browser storage quotas, so test offline playback before relying on it.
+- Existing `music/` entries in this repository are small Git LFS pointer files, **not playable media served by GitHub Pages**. No licensed music or video is bundled in the deployed app.
+- For local development use `python -m http.server 8000`, then open `http://localhost:8000/` rather than opening `index.html` via `file://`.

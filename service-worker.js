@@ -1,233 +1,54 @@
-const CACHE_NAME = 'music-player-v2';
-// Use the installed service worker scope, not a previous GitHub account hostname.
-const GITHUB_URL = new URL('./', self.registration.scope).href;
-
-// Cache static assets
-const staticAssets = [
-    GITHUB_URL + 'index.html',
-    GITHUB_URL + 'style.css',
-    GITHUB_URL + 'manifest.json',
-    GITHUB_URL + 'icon-192x192.png',
-    GITHUB_URL + 'icon-512x512.png'
-];
-
-// Update music files to use GitHub URL
-const cachedMusicFiles = [
-    'Alan Jackson, Jimmy Buffett - It\'s Five O\' Clock Somewhere (Official HD Video).mp4',
-    'Billy Currington - People Are Crazy (Official Music Video).mp4',
-    'Billy Currington - Pretty Good At Drinkin\' Beer (Official Music Video).mp4',
-    'Chris Stapleton - Starting Over (Official Music Video).mp4',
-    'Chris Stapleton - Tennessee Whiskey (Official Audio).mp4',
-    'Darius Rucker - Wagon Wheel (Official Music Video).mp4',
-    'Dierks Bentley - 5-1-5-0 (Official Music Video).mp4',
-    'Dierks Bentley - Drunk On A Plane (Official Music Video).mp4',
-    'Dierks Bentley - Somewhere On A Beach (Official Music Video).mp4',
-    'Florida Georgia Line - May We All ft. Tim McGraw.mp4',
-    'Kenny Chesney - Don\'t Blink (Official Video).mp4',
-    'Kenny Chesney - No Shoes, No Shirt, No Problems (Official Video).mp4',
-    'Kenny Chesney, Uncle Kracker - When The Sun Goes Down (Official Video).mp4',
-    'Luke Bryan - Drunk On You (Official Music Video).mp4',
-    'Luke Bryan - Huntin\', Fishin\', And Lovin\' Every Day (Official Music Video).mp4',
-    'Luke Bryan - I Don\'t Want This Night To End (Official Music Video).mp4',
-    'Luke Bryan - That\'s My Kind Of Night (Official Music Video).mp4',
-    'Luke Combs - Beautiful Crazy (Official Video).mp4',
-    'Luke Combs - Hurricane (Official Video).mp4',
-    'Luke Combs - She Got the Best of Me (Official Video).mp4',
-    'Luke Combs - When It Rains It Pours (Official Video).mp4',
-    'Rehab - Bartender Song (Sittin\' At A Bar).mp4',
-    'Toby Keith - As Good As I Once Was.mp4',
-    'Zac Brown Band - Chicken Fried (Official Music Video) ｜ The Foundation.mp4',
-    'Zac Brown Band - Knee Deep Feat. Jimmy Buffett (Official Music Video) ｜ You Get What You Give.mp4',
-    'Zac Brown Band - Toes (Official Video).mp4'
-].map(file => GITHUB_URL + 'music/' + file);
-
-// Install event - cache static assets and music files
-self.addEventListener('install', event => {
-    event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then(cache => {
-                // Cache static assets first
-                return cache.addAll(staticAssets)
-                    .then(() => {
-                        // Then cache music files
-                        return Promise.all(
-                            cachedMusicFiles.map(file => {
-                                return fetch(file)
-                                    .then(response => {
-                                        if (response.ok) {
-                                            return cache.put(file, response);
-                                        }
-                                        throw new Error(`Failed to cache ${file}`);
-                                    })
-                                    .catch(error => {
-                                        console.error(`Error caching ${file}:`, error);
-                                        // Continue with other files even if one fails
-                                        return null;
-                                    });
-                            })
-                        );
-                    })
-            })
-            .catch(error => {
-                console.error('Installation failed:', error);
-                return Promise.resolve(); // Return a resolved promise
-            })
-    );
-});
-
-// Activate event - clean up old caches
-self.addEventListener('activate', event => {
-    event.waitUntil(
-        caches.keys().then(cacheNames => {
-            return Promise.all(
-                cacheNames.filter(cacheName => {
-                    return cacheName.startsWith('music-player-') && cacheName !== CACHE_NAME;
-                }).map(cacheName => {
-                    return caches.delete(cacheName);
-                })
-            );
-        })
-    );
-});
-
-// Fetch event - serve from cache first, then network
-self.addEventListener('fetch', event => {
-    if (event.request.method === 'GET') {
-        event.respondWith(
-            caches.match(event.request).then(cachedResponse => {
-                if (cachedResponse) {
-                    return cachedResponse;
-                }
-
-                return fetch(event.request).then(response => {
-                    if (response.ok) {
-                        return caches.open(CACHE_NAME).then(cache => {
-                            cache.put(event.request, response.clone());
-                            return response;
-                        });
-                    }
-                    return response;
-                }).catch(() => {
-                    if (event.request.headers.get('range')) {
-                        // Handle range requests for video streaming
-                        return new Response(null, {
-                            status: 206,
-                            statusText: 'Partial Content',
-                            headers: {
-                                'Content-Range': 'bytes */*'
-                            }
-                        });
-                    }
-                    return new Response(null, { status: 404 });
-                });
-            })
-        );
-    }
-});
-    '/music/Alan Jackson, Jimmy Buffett - It\'s Five O\' Clock Somewhere (Official HD Video).mp4',
-    '/music/Billy Currington - People Are Crazy (Official Music Video).mp4',
-    '/music/Billy Currington - Pretty Good At Drinkin\' Beer (Official Music Video).mp4',
-    '/music/Chris Stapleton - Starting Over (Official Music Video).mp4',
-    '/music/Chris Stapleton - Tennessee Whiskey (Official Audio).mp4',
-    '/music/Darius Rucker - Wagon Wheel (Official Music Video).mp4',
-    '/music/Dierks Bentley - 5-1-5-0 (Official Music Video).mp4',
-    '/music/Dierks Bentley - Drunk On A Plane (Official Music Video).mp4',
-    '/music/Dierks Bentley - Somewhere On A Beach (Official Music Video).mp4',
-    '/music/Florida Georgia Line - May We All ft. Tim McGraw.mp4',
-    '/music/Kenny Chesney - Don\'t Blink (Official Video).mp4',
-    '/music/Kenny Chesney - No Shoes, No Shirt, No Problems (Official Video).mp4',
-    '/music/Kenny Chesney, Uncle Kracker - When The Sun Goes Down (Official Video).mp4',
-    '/music/Luke Bryan - Drunk On You (Official Music Video).mp4',
-    '/music/Luke Bryan - Huntin\', Fishin\', And Lovin\' Every Day (Official Music Video).mp4',
-    '/music/Luke Bryan - I Don\'t Want This Night To End (Official Music Video).mp4',
-    '/music/Luke Bryan - That\'s My Kind Of Night (Official Music Video).mp4',
-    '/music/Luke Combs - Beautiful Crazy (Official Video).mp4',
-    '/music/Luke Combs - Hurricane (Official Video).mp4',
-    '/music/Luke Combs - She Got the Best of Me (Official Video).mp4',
-    '/music/Luke Combs - When It Rains It Pours (Official Video).mp4',
-    '/music/Rehab - Bartender Song (Sittin\' At A Bar).mp4',
-    '/music/Toby Keith - As Good As I Once Was.mp4',
-    '/music/Zac Brown Band - Chicken Fried (Official Music Video) ｜ The Foundation.mp4',
-    '/music/Zac Brown Band - Knee Deep Feat. Jimmy Buffett (Official Music Video) ｜ You Get What You Give.mp4',
-    '/music/Zac Brown Band - Toes (Official Video).mp4'
-];
+'use strict';
+const CACHE_NAME = 'music-player-v3';
+const SCOPE = self.registration.scope;
+const shell = ['index.html', 'style.css', 'manifest.json', 'app-icon.svg']
+  .map(path => new URL(path, SCOPE).href);
 
 self.addEventListener('install', event => {
-    event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then(cache => {
-                // Cache static assets first
-                return cache.addAll(staticAssets)
-                    .then(() => {
-                        // Then cache music files
-                        return Promise.all(
-                            musicFiles.map(file => {
-                                return fetch(file)
-                                    .then(response => {
-                                        if (response.ok) {
-                                            return cache.put(file, response);
-                                        }
-                                        throw new Error(`Failed to cache ${file}`);
-                                    })
-                                    .catch(error => {
-                                        console.error(`Error caching ${file}:`, error);
-                                        // Continue with other files even if one fails
-                                        return null;
-                                    });
-                            })
-                        );
-                    })
-            })
-            .catch(error => {
-                console.error('Installation failed:', error);
-            })
-    );
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(shell))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', event => {
-    event.waitUntil(
-        caches.keys().then(cacheNames => {
-            return Promise.all(
-                cacheNames.filter(cacheName => {
-                    return cacheName.startsWith('music-player-') && cacheName !== CACHE_NAME;
-                }).map(cacheName => {
-                    return caches.delete(cacheName);
-                })
-            );
-        })
-    );
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys
+        .filter(name => name.startsWith('music-player-') && name !== CACHE_NAME)
+        .map(name => caches.delete(name))))
+      .then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', event => {
-    if (event.request.method === 'GET') {
-        event.respondWith(
-            caches.match(event.request).then(cachedResponse => {
-                if (cachedResponse) {
-                    return cachedResponse;
-                }
+  const request = event.request;
+  if (request.method !== 'GET') return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin || !url.href.startsWith(SCOPE)) return;
 
-                return fetch(event.request).then(response => {
-                    if (response.ok) {
-                        return caches.open(CACHE_NAME).then(cache => {
-                            cache.put(event.request, response.clone());
-                            return response;
-                        });
-                    }
-                    return response;
-                }).catch(() => {
-                    if (event.request.headers.get('range')) {
-                        // Handle range requests for video streaming
-                        return new Response(null, {
-                            status: 206,
-                            statusText: 'Partial Content',
-                            headers: {
-                                'Content-Range': 'bytes */*'
-                            }
-                        });
-                    }
-                    return new Response(null, { status: 404 });
-                });
-            })
-        );
+  // Do not cache videos/audio as if they were complete files when they may be
+  // Git LFS pointers or 206 Partial Content. Imported files use IndexedDB.
+  if (request.destination === 'audio' || request.destination === 'video' ||
+      request.headers.has('range')) return;
+
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request).catch(async () => {
+      const cache = await caches.open(CACHE_NAME);
+      return (await cache.match(new URL('index.html', SCOPE).href)) || Response.error();
+    }));
+    return;
+  }
+
+  event.respondWith(caches.match(request).then(async cached => {
+    if (cached) return cached;
+    const response = await fetch(request);
+    if (response.ok && response.status === 200 &&
+        ['style', 'script', 'image', 'manifest', 'font'].includes(request.destination)) {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(request, response.clone());
     }
+    return response;
+  }));
 });
