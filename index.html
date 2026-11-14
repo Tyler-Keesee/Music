@@ -7,42 +7,19 @@
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#007bff">
-    <script>
-        // Initialize Service Worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('service-worker.js', {
-                scope: '/Music/'
-            })
-            .then(registration => {
-                console.log('Service Worker registered with scope:', registration.scope);
-            })
-            .catch(error => {
-                console.error('Service Worker registration failed:', error);
-            });
-        }
-    </script>
+
 </head>
 <body>
     <div class="container">
         <h1>Country Music Player</h1>
         <div class="player-container">
-            <div class="player-controls">
-                <button id="playPauseBtn" class="control-btn">
-                    <img src="play.svg" alt="Play/Pause">
-                </button>
-                <button id="prevBtn" class="control-btn">
-                    <img src="prev.svg" alt="Previous">
-                </button>
-                <button id="nextBtn" class="control-btn">
-                    <img src="next.svg" alt="Next">
-                </button>
-                <button id="fullscreenBtn" class="control-btn">
-                    <img src="fullscreen.svg" alt="Fullscreen">
-                </button>
-                        </svg>
-                        Add Media
-                    </button>
-                </div>
+            <div class="player-controls" aria-label="Music controls">
+                <button id="playPauseBtn" class="control-btn" type="button" aria-label="Play or pause">▶ / ‖</button>
+                <button id="prevBtn" class="control-btn" type="button" aria-label="Previous">⏮</button>
+                <button id="nextBtn" class="control-btn" type="button" aria-label="Next">⏭</button>
+                <button id="fullscreenBtn" class="control-btn" type="button" aria-label="Fullscreen">⛶</button>
+                <button id="add-media" class="control-btn" type="button">Add Media</button>
+            </div>
                 <div id="song-list-items" class="song-list-items">
                     <!-- Songs will be dynamically added here -->
                 </div>
@@ -97,276 +74,186 @@
             </div>
         </div>
     </div>
+
     <script>
-        // Initialize media player elements and state
-        const mediaPlayer = document.getElementById('mediaPlayer');
-        const playBtn = document.getElementById('play-btn');
-        const pauseBtn = document.getElementById('pause-btn');
-        const addMediaBtn = document.getElementById('add-media');
-        const fullscreenBtn = document.getElementById('fullscreen-btn');
-        const volumeBtn = document.getElementById('volume-btn');
-        const volumeSlider = document.getElementById('volume-slider');
-        const songListItems = document.getElementById('song-list-items');
-        const statusText = document.getElementById('status-text');
-        const offlineIndicator = document.getElementById('offline-indicator');
-        const previousBtn = document.getElementById('previous-btn');
-        const nextBtn = document.getElementById('next-btn');
-        let currentSongIndex = -1;
-        let songs = [];
-        let isPlaying = false;
-        let volume = 1.0; // Set volume to maximum
+      'use strict';
+      const mediaPlayer = document.getElementById('mediaPlayer');
+      const songListItems = document.getElementById('song-list-items');
+      const statusText = document.getElementById('status-text');
+      const offlineIndicator = document.getElementById('offline-indicator');
+      const volumeSlider = document.getElementById('volume-slider');
+      const audioLibrary = [];
+      const activeObjectURLs = new Set();
+      let currentSongIndex = -1;
+      let mediaDatabase = null;
 
-        // Initialize media player
-        mediaPlayer.volume = volume;
-        volumeSlider.value = volume * 100;
-        mediaPlayer.muted = false; // Ensure audio is not muted
+      function updateStatus(message) {
+        statusText.textContent = message || (navigator.onLine
+          ? 'Online · Imported media is stored locally when space allows'
+          : 'Offline · Saved media remains available on this device');
+        offlineIndicator.style.display = navigator.onLine ? 'none' : 'block';
+      }
 
-        // Add click handlers for controls
-        playBtn.addEventListener('click', () => {
-            if (songs.length > 0) {
-                isPlaying = true;
-                mediaPlayer.src = songs[currentSongIndex].src;
-                mediaPlayer.play().catch(error => {
-                    console.error('Error playing media:', error);
-                });
-            }
-        });
-
-        pauseBtn.addEventListener('click', () => {
-            if (isPlaying) {
-                mediaPlayer.pause();
-                isPlaying = false;
-            }
-        });
-
-        volumeSlider.addEventListener('input', () => {
-            volume = volumeSlider.value / 100;
-            mediaPlayer.volume = volume;
-        });
-
-        fullscreenBtn.addEventListener('click', () => {
-            if (mediaPlayer.requestFullscreen) {
-                mediaPlayer.requestFullscreen();
-            }
-        });
-
-        previousBtn.addEventListener('click', () => {
-            if (songs.length > 0) {
-                currentSongIndex = (currentSongIndex - 1 + songs.length) % songs.length;
-                mediaPlayer.src = songs[currentSongIndex].src;
-                mediaPlayer.play().catch(error => {
-                    console.error('Error playing media:', error);
-                });
-            }
-        });
-
-        nextBtn.addEventListener('click', () => {
-            if (songs.length > 0) {
-                currentSongIndex = (currentSongIndex + 1) % songs.length;
-                mediaPlayer.src = songs[currentSongIndex].src;
-                mediaPlayer.play().catch(error => {
-                    console.error('Error playing media:', error);
-                });
-            }
-        });
-
-        // Add media player event listeners
-        mediaPlayer.addEventListener('play', () => {
-            isPlaying = true;
-            playBtn.style.display = 'none';
-            pauseBtn.style.display = 'block';
-        });
-
-        mediaPlayer.addEventListener('pause', () => {
-            isPlaying = false;
-            playBtn.style.display = 'block';
-            pauseBtn.style.display = 'none';
-        });
-
-        mediaPlayer.addEventListener('ended', () => {
-            if (songs.length > 0) {
-                currentSongIndex = (currentSongIndex + 1) % songs.length;
-                mediaPlayer.src = songs[currentSongIndex].src;
-                mediaPlayer.play().catch(error => {
-                    console.error('Error playing media:', error);
-                });
-            }
-        });
-
-        // Add offline status handler
-        window.addEventListener('online', updateOfflineStatus);
-        window.addEventListener('offline', updateOfflineStatus);
-
-        // Function to update status display
-        function updateStatus() {
-            const isOnline = navigator.onLine;
-            if (isOnline) {
-                statusText.textContent = 'Online Mode: Working Perfectly';
-                statusText.style.color = '#4CAF50';
-                offlineIndicator.style.display = 'none';
-            } else {
-                statusText.textContent = 'Offline Mode: Working Perfectly';
-                statusText.style.color = '#2196F3';
-                offlineIndicator.style.display = 'block';
-            }
+      function renderSongList() {
+        songListItems.replaceChildren();
+        if (audioLibrary.length === 0) {
+          const empty = document.createElement('p');
+          empty.textContent = 'No local media added yet. Select Add Media to import audio or video files.';
+          songListItems.append(empty);
+          return;
         }
-
-        // Function to update offline status
-        function updateOfflineStatus() {
-            updateStatus();
+        for (const [index, song] of audioLibrary.entries()) {
+          const row = document.createElement('div');
+          row.className = 'song-item';
+          const label = document.createElement('span');
+          label.textContent = song.name;
+          const button = document.createElement('button');
+          button.className = 'play-song';
+          button.type = 'button';
+          button.textContent = index === currentSongIndex ? 'Playing' : 'Play';
+          button.addEventListener('click', () => playSong(index));
+          row.append(label, button);
+          songListItems.append(row);
         }
+      }
 
-        // Function to update volume UI
-        function updateVolumeUI() {
-            volumeSlider.value = mediaPlayer.volume * 100;
+      async function playSong(index) {
+        if (!audioLibrary.length || index < 0 || index >= audioLibrary.length) return;
+        currentSongIndex = index;
+        mediaPlayer.src = audioLibrary[index].src;
+        mediaPlayer.load();
+        renderSongList();
+        try {
+          await mediaPlayer.play();
+          updateStatus();
+        } catch (error) {
+          updateStatus('Playback unavailable for this media: ' + (error?.message || 'unsupported format'));
         }
+      }
 
-        // Function to initialize player
-        function initializePlayer() {
-            // Set initial volume
-            mediaPlayer.volume = volume;
-            updateVolumeUI();
+      function advanceSong(direction) {
+        if (!audioLibrary.length) return;
+        const next = (Math.max(0, currentSongIndex) + direction + audioLibrary.length) % audioLibrary.length;
+        playSong(next);
+      }
 
-            // Add event listeners
-            playBtn.addEventListener('click', togglePlay);
-            pauseBtn.addEventListener('click', togglePlay);
-            playBtn.addEventListener('touchstart', togglePlay);
-            pauseBtn.addEventListener('touchstart', togglePlay);
+      function togglePlay() {
+        if (!audioLibrary.length) { updateStatus('Add a local audio or video file first.'); return; }
+        if (mediaPlayer.paused) {
+          if (currentSongIndex < 0) playSong(0);
+          else mediaPlayer.play().catch(() => updateStatus('Playback was blocked by the browser.'));
+        } else mediaPlayer.pause();
+      }
 
-            volumeSlider.addEventListener('input', () => {
-                mediaPlayer.volume = volumeSlider.value / 100;
-                updateVolumeUI();
-            });
-
-            volumeBtn.addEventListener('click', () => {
-                isMuted = !isMuted;
-                mediaPlayer.muted = isMuted;
-                volumeSlider.style.opacity = isMuted ? '0.5' : '1';
-            });
-
-            fullscreenBtn.addEventListener('click', () => {
-                if (!document.fullscreenElement) {
-                    mediaPlayer.requestFullscreen();
-                } else {
-                    document.exitFullscreen();
-                }
-            });
-
-            // Handle media player events
-            mediaPlayer.addEventListener('play', () => {
-                isPlaying = true;
-                updatePlayPauseUI();
-            });
-
-            mediaPlayer.addEventListener('pause', () => {
-                isPlaying = false;
-                updatePlayPauseUI();
-            });
-
-            // Add error handling
-            window.addEventListener('error', (event) => {
-                console.error('Error:', event.error);
-                alert('An error occurred: ' + event.error.message);
-            });
-        }
-
-        // Initialize everything
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                // Register service worker
-                navigator.serviceWorker.register('service-worker.js', {
-                    scope: './'
-                })
-                .then(registration => {
-                    console.log('ServiceWorker registration successful');
-                    // Update status when service worker state changes
-                    registration.installing?.addEventListener('statechange', updateStatus);
-                    registration.waiting?.addEventListener('statechange', updateStatus);
-                    registration.active?.addEventListener('statechange', updateStatus);
-
-                    // Get list of cached music files
-                    navigator.serviceWorker.controller?.postMessage({
-                        action: 'getMusicFiles'
-                    });
-
-                    // Listen for music files response
-                    navigator.serviceWorker.addEventListener('message', (event) => {
-                        if (event.data.type === 'musicFiles') {
-                            populateSongList(event.data.files);
-                        }
-                    });
-                })
-                .catch(err => {
-                    console.error('ServiceWorker registration failed: ', err);
-                    document.getElementById('status-text').textContent = 'Service Worker Error: ' + err.message;
-                });
-            });
-        }
-
-        // Add network change listeners
-        window.addEventListener('online', updateStatus);
-        window.addEventListener('offline', updateStatus);
-
-        // Previous/Next controls
-        previousBtn.addEventListener('click', () => {
-            if (currentSongIndex > 0) {
-                currentSongIndex--;
-                playSong(songs[currentSongIndex].src);
+      async function openMediaDb() {
+        if (!('indexedDB' in window)) return null;
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open('offline-music-media', 1);
+          request.onupgradeneeded = () => {
+            if (!request.result.objectStoreNames.contains('files')) {
+              request.result.createObjectStore('files', { keyPath: 'id' });
             }
+          };
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
         });
+      }
 
-        nextBtn.addEventListener('click', () => {
-            if (currentSongIndex < songs.length - 1) {
-                currentSongIndex++;
-                playSong(songs[currentSongIndex].src);
-            }
+      function listStoredFiles(db) {
+        return new Promise((resolve, reject) => {
+          const request = db.transaction('files', 'readonly').objectStore('files').getAll();
+          request.onsuccess = () => resolve(request.result || []);
+          request.onerror = () => reject(request.error);
         });
+      }
 
-        // Add media button
-        addMediaBtn.addEventListener('click', () => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'video/mp4';
-            input.multiple = true;
-            input.onchange = (e) => {
-                const files = Array.from(e.target.files);
-                files.forEach(file => {
-                    const fileName = file.name;
-                    const songItem = document.createElement('div');
-                    songItem.className = 'song-item';
-                    songItem.innerHTML = `
-                        <div class="song-info">
-                            <h3>${fileName}</h3>
-                            <p>MP4 Video</p>
-                        </div>
-                        <div class="song-controls">
-                            <button class="play-song">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M5 3l14 9-14 9V3z"/>
-                                </svg>
-                            </button>
-                        </div>
-                    `;
-                    
-                    songItem.querySelector('.play-song').addEventListener('click', () => {
-                        playSong(`/music/${fileName}`);
-                    });
-                    
-                    songs.push({
-                        name: fileName,
-                        type: 'video/mp4',
-                        src: `/music/${fileName}`
-                    });
-                    
-                    songListItems.appendChild(songItem);
-                });
+      function saveStoredFile(db, record) {
+        return new Promise((resolve, reject) => {
+          const request = db.transaction('files', 'readwrite').objectStore('files').put(record);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        });
+      }
+
+      function addToLibrary(record) {
+        if (!record?.blob || !record?.name) return;
+        const src = URL.createObjectURL(record.blob);
+        activeObjectURLs.add(src);
+        audioLibrary.push({ id: record.id, name: record.name, src });
+        renderSongList();
+      }
+
+      async function initializeLibrary() {
+        try {
+          mediaDatabase = await openMediaDb();
+          if (mediaDatabase) {
+            const records = await listStoredFiles(mediaDatabase);
+            records.forEach(addToLibrary);
+          }
+        } catch (error) {
+          mediaDatabase = null;
+          updateStatus('Persistent storage unavailable; imported files will work until this tab closes.');
+        }
+      }
+
+      document.getElementById('add-media').addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'audio/*,video/*';
+        input.multiple = true;
+        input.addEventListener('change', async () => {
+          for (const file of input.files || []) {
+            const record = {
+              id: (crypto.randomUUID?.() || (Date.now() + '-' + Math.random())),
+              name: file.name,
+              blob: file,
             };
-            input.click();
+            addToLibrary(record);
+            if (mediaDatabase) {
+              try {
+                await saveStoredFile(mediaDatabase, record);
+              } catch (error) {
+                updateStatus('Media added for this session; storage quota or permissions prevented saving it.');
+              }
+            }
+          }
         });
+        input.click();
+      });
 
-        // Initialize song list and player
-        populateSongList();
-        initializePlayer();
+      const onClick = (ids, handler) => ids.forEach(id => {
+        const button = document.getElementById(id);
+        if (button) button.addEventListener('click', handler);
+      });
+      onClick(['playPauseBtn', 'play-btn'], togglePlay);
+      onClick(['pause-btn'], () => mediaPlayer.pause());
+      onClick(['prevBtn', 'previous-btn'], () => advanceSong(-1));
+      onClick(['nextBtn', 'next-btn'], () => advanceSong(1));
+      onClick(['fullscreenBtn', 'fullscreen-btn'], () => {
+        if (!document.fullscreenElement) mediaPlayer.requestFullscreen?.().catch(() => {});
+        else document.exitFullscreen?.().catch(() => {});
+      });
+      onClick(['volume-btn'], () => {
+        mediaPlayer.muted = !mediaPlayer.muted;
+        document.getElementById('volume-btn').setAttribute('aria-pressed', String(mediaPlayer.muted));
+      });
+      volumeSlider.value = '100';
+      volumeSlider.addEventListener('input', () => { mediaPlayer.volume = Number(volumeSlider.value) / 100; });
+      mediaPlayer.addEventListener('ended', () => advanceSong(1));
+      window.addEventListener('online', () => updateStatus());
+      window.addEventListener('offline', () => updateStatus());
+      window.addEventListener('beforeunload', () => {
+        activeObjectURLs.forEach(src => URL.revokeObjectURL(src));
+        mediaDatabase?.close();
+      });
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./service-worker.js', { scope: './' })
+            .catch(error => updateStatus('Offline app caching unavailable: ' + error.message));
+        });
+      }
+      updateStatus();
+      initializeLibrary();
     </script>
 </body>
 </html>
